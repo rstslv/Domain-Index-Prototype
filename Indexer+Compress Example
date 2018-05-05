@@ -1,0 +1,142 @@
+package main
+
+import (
+	"compress/flate"
+	"encoding/csv"
+	"errors"
+	"fmt"
+	"io"
+	"log"
+	"os"
+	"sort"
+	"strconv"
+)
+
+// Tree 
+type Tree struct {
+	Left  *Tree
+	Value int
+	Key   int
+	//data := map[int]int{}
+	Right *Tree
+}
+
+// Insert 
+func (t *Tree) Insert(value, key int) error {
+	if t == nil {
+		return errors.New("Cannot insert a value into a nil tree")
+	}
+	switch {
+	case value == t.Value:
+		return nil
+	case value < t.Value:
+		if t.Left == nil {
+			t.Left = &Tree{Value: value, Key: key}
+			return nil
+		}
+		return t.Left.Insert(value, key)
+	case value > t.Value:
+		if t.Right == nil {
+			t.Right = &Tree{Value: value, Key: key}
+			return nil
+		}
+		return t.Right.Insert(value, key)
+	}
+	return nil
+}
+
+//FindKey 
+func (t *Tree) FindKey(value int) (int, bool) {
+	if t == nil {
+		return 0, false
+	}
+	switch {
+	case value == t.Value:
+		return t.Key, true
+	case value < t.Value:
+		return t.Left.FindKey(value)
+	default:
+		return t.Right.FindKey(value)
+	}
+}
+
+//FindValue 
+func (t *Tree) FindValue(key int) (int, bool) {
+	if t == nil {
+		return 0, false
+	}
+	switch {
+	case key == t.Key:
+		return t.Value, true
+	case key < t.Key:
+		return t.Left.FindValue(key)
+	default:
+		return t.Right.FindValue(key)
+	}
+}
+
+func main() {
+	var val = []int{}
+	csvFile, err := os.Open("data.csv")
+	if err != nil {
+		fmt.Println("Error:", err)
+		return
+	}
+	defer csvFile.Close()
+	reader := csv.NewReader(csvFile)
+	reader.Comma = ';'
+	lineCount := 0
+	for {
+		record, err := reader.Read()
+		if err == io.EOF {
+			break
+		} else if err != nil {
+			fmt.Println("Error:", err)
+			return
+		}
+		//to int
+		for _, i := range record {
+			j, err := strconv.Atoi(i)
+			if err != nil {
+				panic(err)
+			}
+			val = append(val, j)
+		}
+		fmt.Println()
+		lineCount++
+	}
+	if err != nil {
+		fmt.Print(err)
+	}
+	fmt.Println(len(val))
+	keys := make([]int, len(val))
+	for i := 0; i < len(keys); i++ {
+		keys[i] = i
+	}
+
+	sort.Ints(val)
+
+	for i := 0; i < len(keys); i++ {
+		fmt.Print(keys[i], " ")
+	}
+	fmt.Println()
+	for i := 0; i < len(val); i++ {
+		fmt.Print(val[i], " ")
+	}
+
+	fmt.Println()
+	tree := &Tree{}
+	for i := 0; i < len(val); i++ {
+		err := tree.Insert(val[i], keys[i])
+		if err != nil {
+			log.Fatal("Error inserting value '", val[i], "': ", err)
+		}
+	}
+	fmt.Println(tree.FindKey(35))
+	fmt.Println(tree.FindValue(17))
+	//compress example
+	outputFile, err := os.Create("data1.txt")
+	flateWriter, err := flate.NewWriter(outputFile, flate.BestCompression)
+	io.Copy(flateWriter, csvFile)
+	flateWriter.Flush()
+}
